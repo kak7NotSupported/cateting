@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Панель управления</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/3.14.0/js-yaml.min.js"></script>
+  <style>
+    body {
+      background-color: #333;
+      color: #fff;
+    }
+    #menuContainer {
+      border: 2px solid #ccc;
+      padding: 20px;
+      width: 50%;
+      margin: auto;
+      background-color: #444;
+    }
+    .category, .subcategory, .item {
+      border: 1px solid #ccc;
+      margin: 10px;
+      padding: 10px;
+      background-color: #555;
+    }
+    .draggable {
+      cursor: move;
+    }
+    .drag-icon {
+      float: right;
+      cursor: move;
+    }
+    label {
+      margin-right: 10px;
+    }
+    #yamlPreview {
+      margin-top: 20px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      background-color: #555;
+    }
+  </style>
+</head>
+<body>
+  <h1 style="text-align: center;">Панель управления для меню</h1>
+
+  <div id="menuContainer">
+    <button onclick="addCategory(null)">Добавить категорию</button>
+  </div>
+
+  <button id="exportButton">Экспортировать в YAML</button>
+  <pre id="yamlPreview"></pre>
+
+  <script>
+    const menuData = {};
+
+    function addCategory(parent) {
+      const categoryName = prompt("Введите название категории:");
+      if (categoryName) {
+        if (parent) {
+          if (!menuData[parent]) menuData[parent] = {};
+          menuData[parent][categoryName] = { items: [] };
+        } else {
+          menuData[categoryName] = { items: [] };
+        }
+        renderMenu();
+        updatePreview();
+      }
+    }
+
+    function addItem(category, subcategory) {
+      const form = document.createElement('form');
+      form.className = 'item-form';
+      form.innerHTML = `
+        <label>Название: <input type="text" name="name"></label><br>
+        <label>Описание: <input type="text" name="description"></label><br>
+        <label>Ингредиенты: <input type="text" name="ingredients"></label><br>
+        <label>Грамовка: <input type="text" name="weight"></label><br>
+        <label>Цена: <input type="text" name="price"></label><br>
+        <input type="submit" value="Добавить">
+      `;
+      form.onsubmit = function(e) {
+        e.preventDefault();
+        const formData = new FormData(form);
+        const item = {
+          name: formData.get('name'),
+          description: formData.get('description'),
+          ingredients: formData.get('ingredients').split(','),
+          weight: formData.get('weight'),
+          price: formData.get('price')
+        };
+        if (subcategory) {
+          menuData[category][subcategory].items.push(item);
+        } else {
+          menuData[category].items.push(item);
+        }
+        renderMenu();
+        updatePreview();
+      };
+      return form;
+    }
+
+    function renderMenu() {
+      const container = document.getElementById('menuContainer');
+      container.innerHTML = '<button onclick="addCategory(null)">Добавить категорию</button>';
+
+      for (const category in menuData) {
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'category draggable';
+        categoryDiv.draggable = true;
+        categoryDiv.innerHTML = `<h2>${category} <span class="drag-icon">🔼🔽</span><button onclick="addCategory('${category}')">Добавить подкатегорию</button></h2>`;
+        categoryDiv.appendChild(addItem(category, null));
+
+        for (const item of menuData[category].items) {
+          const itemDiv = document.createElement('div');
+          itemDiv.className = 'item draggable';
+          itemDiv.draggable = true;
+          itemDiv.innerHTML = `
+            <strong>${item.name}</strong> <span class="drag-icon">🔼🔽</span><br>
+            Описание: ${item.description}<br>
+            Ингредиенты: ${item.ingredients.join(', ')}<br>
+            Грамовка: ${item.weight}<br>
+            Цена: ${item.price}
+          `;
+          categoryDiv.appendChild(itemDiv);
+        }
+
+        for (const subcategory in menuData[category]) {
+          if (subcategory !== 'items') {
+            const subcategoryDiv = document.createElement('div');
+            subcategoryDiv.className = 'subcategory draggable';
+            subcategoryDiv.draggable = true;
+            subcategoryDiv.innerHTML = `<h3>${subcategory} <span class="drag-icon">🔼🔽</span><button onclick="addItem('${category}', '${subcategory}')">Добавить предмет</button></h3>`;
+            subcategoryDiv.appendChild(addItem(category, subcategory));
+
+            for (const item of menuData[category][subcategory].items) {
+              const itemDiv = document.createElement('div');
+              itemDiv.className = 'item draggable';
+              itemDiv.draggable = true;
+              itemDiv.innerHTML = `
+                <strong>${item.name}</strong> <span class="drag-icon">🔼🔽</span><br>
+                Описание: ${item.description}<br>
+                Ингредиенты: ${item.ingredients.join(', ')}<br>
+                Грамовка: ${item.weight}<br>
+                Цена: ${item.price}
+              `;
+              subcategoryDiv.appendChild(itemDiv);
+            }
+
+            categoryDiv.appendChild(subcategoryDiv);
+          }
+        }
+
+        container.appendChild(categoryDiv);
+      }
+    }
+
+    function updatePreview() {
+      const yamlString = jsyaml.dump(menuData);
+      document.getElementById('yamlPreview').textContent = yamlString;
+    }
+
+    document.getElementById('exportButton').addEventListener('click', function() {
+      const yamlString = jsyaml.dump(menuData);
+      const blob = new Blob([yamlString], { type: 'text/yaml' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'menu.yaml';
+      a.click();
+
+      URL.revokeObjectURL(url);
+    });
+
+    renderMenu();
+    updatePreview();
+  </script>
+</body>
+</html>
